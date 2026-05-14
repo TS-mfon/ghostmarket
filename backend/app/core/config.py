@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     
     # API Keys
-    COINGECKO_API_KEY: str = ""
+    CRYPTORANK_API_KEY: str = ""
     ONESIGNAL_APP_ID: str = ""
     ONESIGNAL_API_KEY: str = ""
     

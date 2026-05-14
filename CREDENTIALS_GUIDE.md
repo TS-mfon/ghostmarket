@@ -27,36 +27,46 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ---
 
-## 2. GenLayer Private Key (Required)
+## 2. GenLayer Wallet (Required)
 
 **What it's for:** Deploying smart contracts
 
-**How to get it:**
-
-```bash
-# If you already have a GenLayer account
-genlayer account export
-
-# If you need to create one
-genlayer account create
-
-# Then export it
-genlayer account export
-```
-
-**Copy the private key shown**
+**You'll provide your wallet address and private key**
 
 **Add to .env.deploy:**
 ```bash
+GENLAYER_WALLET_ADDRESS=0x1234567890123456789012345678901234567890
 GENLAYER_PRIVATE_KEY=0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-**Important:** Make sure your account has testnet tokens!
+**Important:** 
+- Make sure your wallet has testnet tokens!
 - Get them from: https://faucet.genlayer.com
+- Check balance: `genlayer account balance --network testnet`
 
 ---
 
-## 3. Vercel Token (Required)
+## 3. VPS Credentials (Required)
+
+**What it's for:** Deploying backend server
+
+**You need:**
+- VPS IP address or hostname
+- SSH username (usually `root` or `ubuntu`)
+- SSH password
+
+**Add to .env.deploy:**
+```bash
+VPS_HOST=123.456.789.012
+VPS_USER=root
+VPS_PASSWORD=your-vps-password
+```
+
+**Note:** The script will automatically install Docker and Docker Compose on your VPS.
+
+---
+
+## 4. Vercel Token (Required)
 
 **What it's for:** Deploying frontend
 
@@ -114,19 +124,23 @@ VPS_SSH_KEY_PATH=/path/to/your/ssh/key
 
 ---
 
-## 5. Optional: External Services
+## 5. CryptoRank API (Required for crypto trends)
 
-### CoinGecko API (for real trend data)
+**What it's for:** Fetching trending cryptocurrency data
 
-1. Go to: https://www.coingecko.com/en/api/pricing
-2. Sign up for free tier
-3. Get your API key
+1. Go to: https://cryptorank.io/api
+2. Sign up for free tier (no credit card needed)
+3. Get your API key from dashboard
 
 ```bash
-COINGECKO_API_KEY=CG-xxxxxxxxxxxxxxxxxxxxxxxx
+CRYPTORANK_API_KEY=your-api-key-here
 ```
 
-### OneSignal (for push notifications)
+**Note:** Free tier includes 10,000 requests/month which is plenty for this app.
+
+---
+
+## 6. OneSignal (Optional - for push notifications)
 
 1. Go to: https://onesignal.com
 2. Create a new app
@@ -142,21 +156,29 @@ ONESIGNAL_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ## Complete .env.deploy Example
 
 ```bash
-# Required
+# Required - GitHub
 GITHUB_USERNAME=yourusername
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Required - GenLayer Wallet
+GENLAYER_WALLET_ADDRESS=0x1234567890123456789012345678901234567890
 GENLAYER_PRIVATE_KEY=0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Required - Vercel
 VERCEL_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Optional - Backend
-RAILWAY_TOKEN=
-RENDER_API_KEY=
-VPS_HOST=
-VPS_USER=
-VPS_SSH_KEY_PATH=
+# Required - VPS
+VPS_HOST=123.456.789.012
+VPS_USER=root
+VPS_PASSWORD=your-vps-password
 
-# Optional - Services
-COINGECKO_API_KEY=
+# Required - CryptoRank
+CRYPTORANK_API_KEY=your-cryptorank-api-key
+
+# Optional - Database (auto-generated if empty)
+POSTGRES_PASSWORD=
+
+# Optional - Push Notifications
 ONESIGNAL_APP_ID=
 ONESIGNAL_API_KEY=
 ```

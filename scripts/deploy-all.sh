@@ -55,13 +55,22 @@ if [ -z "$GITHUB_USERNAME" ] || [ -z "$GITHUB_TOKEN" ]; then
     MISSING_CREDS=1
 fi
 
-if [ -z "$GENLAYER_PRIVATE_KEY" ]; then
-    log_error "GenLayer private key missing (GENLAYER_PRIVATE_KEY)"
+if [ -z "$GENLAYER_WALLET_ADDRESS" ] || [ -z "$GENLAYER_PRIVATE_KEY" ]; then
+    log_error "GenLayer wallet missing (GENLAYER_WALLET_ADDRESS, GENLAYER_PRIVATE_KEY)"
     MISSING_CREDS=1
 fi
 
 if [ -z "$VERCEL_TOKEN" ]; then
     log_warning "Vercel token missing - will try interactive login"
+fi
+
+if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_PASSWORD" ]; then
+    log_error "VPS credentials missing (VPS_HOST, VPS_USER, VPS_PASSWORD)"
+    MISSING_CREDS=1
+fi
+
+if [ -z "$CRYPTORANK_API_KEY" ]; then
+    log_warning "CryptoRank API key missing - crypto trends may not work"
 fi
 
 if [ $MISSING_CREDS -eq 1 ]; then
@@ -124,12 +133,22 @@ if ! command -v genlayer &> /dev/null; then
     pip install genlayer -q
 fi
 
-# Configure GenLayer account
-log_info "Configuring GenLayer account..."
+# Configure GenLayer wallet
+log_info "Configuring GenLayer wallet: $GENLAYER_WALLET_ADDRESS"
 export GENLAYER_PRIVATE_KEY="$GENLAYER_PRIVATE_KEY"
 
+# Check wallet balance
+log_info "Checking wallet balance..."
+BALANCE=$(genlayer account balance --network testnet 2>&1 || echo "0")
+log_info "Wallet balance: $BALANCE"
+
+if [[ "$BALANCE" == *"0"* ]] || [[ "$BALANCE" == *"error"* ]]; then
+    log_warning "Low or no balance. Get testnet tokens from: https://faucet.genlayer.com"
+    read -p "Press Enter after getting tokens, or Ctrl+C to cancel..."
+fi
+
 # Deploy GhostMarketCore
-log_info "Deploying GhostMarketCore contract (this may take a few minutes)..."
+log_info "Deploying GhostMarketCore contract (this may take 5-10 minutes)..."
 CORE_DEPLOY_OUTPUT=$(genlayer deploy contracts/GhostMarketCore.py --network testnet 2>&1)
 CORE_ADDRESS=$(echo "$CORE_DEPLOY_OUTPUT" | grep -oP 'Contract deployed at: \K[0-9a-fx]+' || echo "")
 
@@ -152,6 +171,10 @@ if [ -z "$TOKEN_ADDRESS" ]; then
 fi
 log_success "GHOST Token deployed: $TOKEN_ADDRESS"
 
+# Export for VPS deployment
+export CORE_ADDRESS
+export TOKEN_ADDRESS
+
 # Save contract addresses
 echo "GENLAYER_CONTRACT_ADDRESS=$CORE_ADDRESS" >> .env
 echo "GENLAYER_TOKEN_ADDRESS=$TOKEN_ADDRESS" >> .env
@@ -160,13 +183,108 @@ echo ""
 log_success "Contracts deployed successfully!"
 echo "  GhostMarketCore: $CORE_ADDRESS"
 echo "  GHOST Token:     $TOKEN_ADDRESS"
+echo "  Deployed by:     $GENLAYER_WALLET_ADDRESS"
 echo ""
 
 # ============================================
-# STEP 3: Deploy Frontend to Vercel
+# STEP 3: Deploy Backend to VPS
 # ============================================
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}STEP 3: Deploying Frontend to Vercel${NC}"
+echo -e "${BLUE}STEP 3: Deploying Backend to VPS${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Install sshpass if needed
+if ! command -v sshpass &> /dev/null; then
+    log_info "Installing sshpass..."
+    sudo apt-get update -qq && sudo apt-get install -y sshpass -qq
+fi
+
+# Generate postgres password if not provided
+if [ -z "$POSTGRES_PASSWORD" ]; then
+    POSTGRES_PASSWORD=$(openssl rand -base64 32)
+fi
+
+# Create deployment package
+log_info "Creating deployment package..."
+tar -czf /tmp/ghostmarket-backend.tar.gz \
+    backend/ \
+    db/ \
+    docker-compose.yml \
+    .env.example
+
+# Upload to VPS
+log_info "Uploading to VPS ($VPS_HOST)..."
+sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no \
+    /tmp/ghostmarket-backend.tar.gz \
+    ${VPS_USER}@${VPS_HOST}:/tmp/
+
+# Deploy on VPS
+log_info "Setting up backend on VPS..."
+sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no \
+    ${VPS_USER}@${VPS_HOST} bash << ENDSSH
+
+# Install Docker if needed
+if ! command -v docker &> /dev/null; then
+    echo "Installing Docker..."
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker \$USER
+fi
+
+# Install Docker Compose if needed
+if ! command -v docker-compose &> /dev/null; then
+    echo "Installing Docker Compose..."
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+fi
+
+# Extract deployment
+cd ~
+rm -rf ghostmarket
+mkdir -p ghostmarket
+cd ghostmarket
+tar -xzf /tmp/ghostmarket-backend.tar.gz
+
+# Create .env file
+cat > .env << 'ENVEOF'
+DATABASE_URL=postgresql://ghostmarket:${POSTGRES_PASSWORD}@postgres:5432/ghostmarket
+REDIS_URL=redis://redis:6379/0
+GENLAYER_RPC_URL=https://testnet-rpc.genlayer.com
+GENLAYER_CONTRACT_ADDRESS=${CORE_ADDRESS}
+GENLAYER_TOKEN_ADDRESS=${TOKEN_ADDRESS}
+JWT_SECRET=\$(openssl rand -base64 32)
+CRYPTORANK_API_KEY=${CRYPTORANK_API_KEY}
+ONESIGNAL_APP_ID=${ONESIGNAL_APP_ID}
+ONESIGNAL_API_KEY=${ONESIGNAL_API_KEY}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+ENVEOF
+
+# Start services
+echo "Starting services..."
+docker-compose down 2>/dev/null || true
+docker-compose up -d
+
+# Wait for services
+echo "Waiting for services..."
+sleep 20
+
+echo "✓ Backend deployed!"
+docker-compose ps
+
+ENDSSH
+
+BACKEND_URL="http://${VPS_HOST}:8000"
+log_success "Backend deployed to VPS!"
+log_info "Backend URL: $BACKEND_URL"
+log_info "API Docs: $BACKEND_URL/docs"
+
+echo ""
+
+# ============================================
+# STEP 4: Deploy Frontend to Vercel
+# ============================================
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}STEP 4: Deploying Frontend to Vercel${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Install Vercel CLI if needed
@@ -203,7 +321,7 @@ VERCEL_OUTPUT=$(vercel --prod --yes \
   -e NEXT_PUBLIC_TOKEN_ADDRESS="$TOKEN_ADDRESS" \
   -e NEXT_PUBLIC_CHAIN_ID="genlayer-testnet" \
   -e NEXT_PUBLIC_RPC_URL="https://testnet-rpc.genlayer.com" \
-  -e NEXT_PUBLIC_API_URL="http://localhost:8000" \
+  -e NEXT_PUBLIC_API_URL="$BACKEND_URL" \
   2>&1)
 
 VERCEL_URL=$(echo "$VERCEL_OUTPUT" | grep -oP 'https://[^\s]+\.vercel\.app' | head -1)
@@ -258,17 +376,21 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 echo -e "${GREEN}✓${NC} GitHub Repository: https://github.com/${GITHUB_USERNAME}/${REPO_NAME}"
 echo -e "${GREEN}✓${NC} Frontend URL:      $VERCEL_URL"
+echo -e "${GREEN}✓${NC} Backend URL:       $BACKEND_URL"
 echo -e "${GREEN}✓${NC} GhostMarketCore:   $CORE_ADDRESS"
 echo -e "${GREEN}✓${NC} GHOST Token:       $TOKEN_ADDRESS"
+echo -e "${GREEN}✓${NC} Deployed by:       $GENLAYER_WALLET_ADDRESS"
 echo ""
 echo "Contract Explorer:"
 echo "  https://testnet-explorer.genlayer.com/contract/$CORE_ADDRESS"
 echo "  https://testnet-explorer.genlayer.com/contract/$TOKEN_ADDRESS"
 echo ""
+echo -e "${BLUE}API Documentation:${NC}"
+echo "  $BACKEND_URL/docs"
+echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Visit your app: $VERCEL_URL"
-echo "  2. Test the features (feed, predictions, dashboard)"
-echo "  3. Share your deployed app!"
-echo ""
-echo -e "${YELLOW}Note:${NC} Backend is running locally. To deploy backend, see DEPLOY_GUIDE.md"
+echo "  2. Test the API: $BACKEND_URL/docs"
+echo "  3. Check contracts on explorer"
+echo "  4. Share your deployed app!"
 echo ""

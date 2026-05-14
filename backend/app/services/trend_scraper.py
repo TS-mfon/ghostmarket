@@ -15,7 +15,7 @@ class TrendScraperService:
         """Scrape trends from all sources"""
         results = await asyncio.gather(
             self.scrape_hackernews(),
-            self.scrape_coingecko(),
+            self.scrape_cryptorank(),
             self.scrape_github_trending(),
             return_exceptions=True
         )
@@ -73,41 +73,45 @@ class TrendScraperService:
             print(f"Error scraping Hacker News: {e}")
             return []
     
-    async def scrape_coingecko(self) -> List[Dict]:
-        """Scrape trending coins from CoinGecko"""
+    async def scrape_cryptorank(self) -> List[Dict]:
+        """Scrape trending coins from CryptoRank"""
         try:
-            # Get trending coins (no API key needed for this endpoint)
+            # Get trending coins from CryptoRank
             response = await self.client.get(
-                "https://api.coingecko.com/api/v3/search/trending"
+                "https://api.cryptorank.io/v1/currencies",
+                params={
+                    "limit": 20,
+                    "sort": "rank",
+                    "order": "asc"
+                }
             )
             data = response.json()
             
             trends = []
-            for item in data.get("coins", [])[:10]:
-                coin = item.get("item", {})
-                
-                # Calculate velocity based on market cap rank and price change
-                rank = coin.get("market_cap_rank", 1000)
-                velocity = max(0, min(100, int((1000 - rank) / 10)))
+            for coin in data.get("data", [])[:10]:
+                # Calculate velocity based on price change and rank
+                price_change = coin.get("values", {}).get("USD", {}).get("percentChange24h", 0)
+                rank = coin.get("rank", 1000)
+                velocity = min(100, max(0, int(50 + price_change + (1000 - rank) / 20)))
                 
                 trends.append({
                     "name": coin.get("name", ""),
                     "description": f"Symbol: {coin.get('symbol', '')}, Rank: #{rank}",
                     "category": "crypto",
-                    "platform": "coingecko",
-                    "evidence_url": f"https://www.coingecko.com/en/coins/{coin.get('id', '')}",
+                    "platform": "cryptorank",
+                    "evidence_url": f"https://cryptorank.io/price/{coin.get('slug', coin.get('symbol', '').lower())}",
                     "velocity": velocity,
                     "raw_data": {
                         "symbol": coin.get("symbol", ""),
                         "rank": rank,
-                        "price_btc": coin.get("price_btc", 0),
-                        "score": coin.get("score", 0)
+                        "price_change_24h": price_change,
+                        "market_cap": coin.get("values", {}).get("USD", {}).get("marketCap", 0)
                     }
                 })
             
             return trends
         except Exception as e:
-            print(f"Error scraping CoinGecko: {e}")
+            print(f"Error scraping CryptoRank: {e}")
             return []
     
     async def scrape_github_trending(self) -> List[Dict]:
