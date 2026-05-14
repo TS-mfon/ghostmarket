@@ -29,7 +29,7 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ## 2. GenLayer Wallet (Required)
 
-**What it's for:** Deploying smart contracts
+**What it's for:** Deploying smart contracts to GenLayer Studio (gasless!)
 
 **You'll provide your wallet address and private key**
 
@@ -40,9 +40,9 @@ GENLAYER_PRIVATE_KEY=0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 **Important:** 
-- Make sure your wallet has testnet tokens!
-- Get them from: https://faucet.genlayer.com
-- Check balance: `genlayer account balance --network testnet`
+- **No gas fees needed!** GenLayer Studio is gasless
+- You don't need testnet tokens
+- Just provide your wallet credentials
 
 ---
 

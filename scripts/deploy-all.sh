@@ -121,10 +121,10 @@ log_success "Code pushed to GitHub: https://github.com/${GITHUB_USERNAME}/${REPO
 echo ""
 
 # ============================================
-# STEP 2: Deploy Contracts to GenLayer
+# STEP 2: Deploy Contracts to GenLayer Studio
 # ============================================
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}STEP 2: Deploying Contracts to GenLayer${NC}"
+echo -e "${BLUE}STEP 2: Deploying Contracts to GenLayer Studio (Gasless)${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Check if genlayer CLI is installed
@@ -137,19 +137,9 @@ fi
 log_info "Configuring GenLayer wallet: $GENLAYER_WALLET_ADDRESS"
 export GENLAYER_PRIVATE_KEY="$GENLAYER_PRIVATE_KEY"
 
-# Check wallet balance
-log_info "Checking wallet balance..."
-BALANCE=$(genlayer account balance --network testnet 2>&1 || echo "0")
-log_info "Wallet balance: $BALANCE"
-
-if [[ "$BALANCE" == *"0"* ]] || [[ "$BALANCE" == *"error"* ]]; then
-    log_warning "Low or no balance. Get testnet tokens from: https://faucet.genlayer.com"
-    read -p "Press Enter after getting tokens, or Ctrl+C to cancel..."
-fi
-
-# Deploy GhostMarketCore
-log_info "Deploying GhostMarketCore contract (this may take 5-10 minutes)..."
-CORE_DEPLOY_OUTPUT=$(genlayer deploy contracts/GhostMarketCore.py --network testnet 2>&1)
+# Deploy to Studio (gasless)
+log_info "Deploying GhostMarketCore to GenLayer Studio (gasless, may take 5-10 minutes)..."
+CORE_DEPLOY_OUTPUT=$(genlayer deploy contracts/GhostMarketCore.py --network studio 2>&1)
 CORE_ADDRESS=$(echo "$CORE_DEPLOY_OUTPUT" | grep -oP 'Contract deployed at: \K[0-9a-fx]+' || echo "")
 
 if [ -z "$CORE_ADDRESS" ]; then
@@ -159,9 +149,9 @@ if [ -z "$CORE_ADDRESS" ]; then
 fi
 log_success "GhostMarketCore deployed: $CORE_ADDRESS"
 
-# Deploy GHOST Token
-log_info "Deploying GHOST Token contract..."
-TOKEN_DEPLOY_OUTPUT=$(genlayer deploy contracts/GHOSTToken.py --network testnet --args 1000000000000000000000000 2>&1)
+# Deploy GHOST Token to Studio
+log_info "Deploying GHOST Token to GenLayer Studio (gasless)..."
+TOKEN_DEPLOY_OUTPUT=$(genlayer deploy contracts/GHOSTToken.py --network studio --args 1000000000000000000000000 2>&1)
 TOKEN_ADDRESS=$(echo "$TOKEN_DEPLOY_OUTPUT" | grep -oP 'Contract deployed at: \K[0-9a-fx]+' || echo "")
 
 if [ -z "$TOKEN_ADDRESS" ]; then
@@ -180,10 +170,11 @@ echo "GENLAYER_CONTRACT_ADDRESS=$CORE_ADDRESS" >> .env
 echo "GENLAYER_TOKEN_ADDRESS=$TOKEN_ADDRESS" >> .env
 
 echo ""
-log_success "Contracts deployed successfully!"
+log_success "Contracts deployed successfully to GenLayer Studio (gasless)!"
 echo "  GhostMarketCore: $CORE_ADDRESS"
 echo "  GHOST Token:     $TOKEN_ADDRESS"
 echo "  Deployed by:     $GENLAYER_WALLET_ADDRESS"
+echo "  Network:         GenLayer Studio (gasless)"
 echo ""
 
 # ============================================
@@ -249,7 +240,7 @@ tar -xzf /tmp/ghostmarket-backend.tar.gz
 cat > .env << 'ENVEOF'
 DATABASE_URL=postgresql://ghostmarket:${POSTGRES_PASSWORD}@postgres:5432/ghostmarket
 REDIS_URL=redis://redis:6379/0
-GENLAYER_RPC_URL=https://testnet-rpc.genlayer.com
+GENLAYER_RPC_URL=https://studio-rpc.genlayer.com
 GENLAYER_CONTRACT_ADDRESS=${CORE_ADDRESS}
 GENLAYER_TOKEN_ADDRESS=${TOKEN_ADDRESS}
 JWT_SECRET=\$(openssl rand -base64 32)
@@ -308,19 +299,19 @@ log_info "Deploying to Vercel..."
 
 # Create .env.local with contract addresses
 cat > .env.local << EOF
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=$BACKEND_URL
 NEXT_PUBLIC_CONTRACT_ADDRESS=$CORE_ADDRESS
 NEXT_PUBLIC_TOKEN_ADDRESS=$TOKEN_ADDRESS
-NEXT_PUBLIC_CHAIN_ID=genlayer-testnet
-NEXT_PUBLIC_RPC_URL=https://testnet-rpc.genlayer.com
+NEXT_PUBLIC_CHAIN_ID=genlayer-studio
+NEXT_PUBLIC_RPC_URL=https://studio-rpc.genlayer.com
 EOF
 
 # Deploy with environment variables
 VERCEL_OUTPUT=$(vercel --prod --yes \
   -e NEXT_PUBLIC_CONTRACT_ADDRESS="$CORE_ADDRESS" \
   -e NEXT_PUBLIC_TOKEN_ADDRESS="$TOKEN_ADDRESS" \
-  -e NEXT_PUBLIC_CHAIN_ID="genlayer-testnet" \
-  -e NEXT_PUBLIC_RPC_URL="https://testnet-rpc.genlayer.com" \
+  -e NEXT_PUBLIC_CHAIN_ID="genlayer-studio" \
+  -e NEXT_PUBLIC_RPC_URL="https://studio-rpc.genlayer.com" \
   -e NEXT_PUBLIC_API_URL="$BACKEND_URL" \
   2>&1)
 
@@ -380,10 +371,11 @@ echo -e "${GREEN}✓${NC} Backend URL:       $BACKEND_URL"
 echo -e "${GREEN}✓${NC} GhostMarketCore:   $CORE_ADDRESS"
 echo -e "${GREEN}✓${NC} GHOST Token:       $TOKEN_ADDRESS"
 echo -e "${GREEN}✓${NC} Deployed by:       $GENLAYER_WALLET_ADDRESS"
+echo -e "${GREEN}✓${NC} Network:           GenLayer Studio (gasless)"
 echo ""
 echo "Contract Explorer:"
-echo "  https://testnet-explorer.genlayer.com/contract/$CORE_ADDRESS"
-echo "  https://testnet-explorer.genlayer.com/contract/$TOKEN_ADDRESS"
+echo "  https://studio.genlayer.com/contract/$CORE_ADDRESS"
+echo "  https://studio.genlayer.com/contract/$TOKEN_ADDRESS"
 echo ""
 echo -e "${BLUE}API Documentation:${NC}"
 echo "  $BACKEND_URL/docs"
@@ -391,6 +383,6 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Visit your app: $VERCEL_URL"
 echo "  2. Test the API: $BACKEND_URL/docs"
-echo "  3. Check contracts on explorer"
+echo "  3. Check contracts on Studio"
 echo "  4. Share your deployed app!"
 echo ""

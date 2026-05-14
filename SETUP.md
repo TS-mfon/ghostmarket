@@ -4,6 +4,7 @@
 
 ✅ **VPS Backend Deployment** - Backend will deploy to your VPS with password auth
 ✅ **Wallet-Based Deployment** - Use your wallet to deploy contracts  
+✅ **GenLayer Studio (Gasless!)** - No gas fees for contract deployment
 ✅ **CryptoRank Integration** - Replaced CoinGecko with CryptoRank API
 ✅ **Automated Everything** - One script deploys everything
 
@@ -74,7 +75,7 @@ cd /home/sudodave/ghostmarket
 - **GitHub Repo**: https://github.com/YOUR_USERNAME/ghostmarket
 - **Frontend**: https://ghostmarket-xxx.vercel.app
 - **Backend**: http://YOUR_VPS_IP:8000
-- **Contracts**: On GenLayer testnet
+- **Contracts**: On GenLayer Studio (gasless)
 - **Database**: PostgreSQL on your VPS
 - **Redis**: On your VPS
 
@@ -101,7 +102,8 @@ cd /home/sudodave/ghostmarket
 
 ### Your Wallet
 - Just provide your wallet address and private key
-- Make sure it has testnet tokens: https://faucet.genlayer.com
+- **No gas fees needed!** GenLayer Studio is gasless
+- No testnet tokens required
 
 ### Your VPS
 - IP address or domain
@@ -143,9 +145,6 @@ Script will auto-install it
 
 ### "Docker not found on VPS"
 Script will auto-install it
-
-### "No testnet tokens"
-Get free tokens: https://faucet.genlayer.com
 
 ### "VPS connection failed"
 - Check VPS IP is correct
