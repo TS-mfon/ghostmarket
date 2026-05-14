@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cyber-dark text-white;
+  }
+}
+
+@layer components {
+  .glow-card {
+    @apply bg-cyber-darker/50 backdrop-blur-md border border-cyber-cyan/30 rounded-lg p-6;
+    @apply hover:border-cyber-cyan/60 transition-all duration-300;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+  }
+
+  .glow-card:hover {
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+  }
+
+  .neon-button {
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-300;
+    @apply bg-cyber-cyan/10 border border-cyber-cyan text-cyber-cyan;
+    @apply hover:bg-cyber-cyan/20 hover:shadow-glow-cyan;
+  }
+
+  .glassmorphism {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10;
+  }
+
+  .pulse-indicator {
+    @apply w-3 h-3 rounded-full bg-cyber-green animate-pulse-glow;
+  }
+}

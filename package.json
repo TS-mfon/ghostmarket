@@ -1,0 +1,14 @@
+{
+  "name": "ghostmarket",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "docker-compose up",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload",
+    "build": "cd frontend && npm run build",
+    "test": "cd backend && pytest",
+    "deploy:contract": "genlayer deploy contracts/GhostMarketCore.py",
+    "db:migrate": "cd backend && alembic upgrade head"
+  }
+}
